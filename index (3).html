@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Break Time Timer</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --muted:#94a3b8;
+      --text:#f1f5f9;
+      --primary:#10b981;
+      --primary-light:#34d399;
+      --primary-dark:#059669;
+      --accent:#3b82f6;
+      --accent2:#8b5cf6;
+      --warning:#f59e0b;
+      --danger:#ef4444;
+      --ring: rgba(16,185,129,.3);
+      --shadow: 0 20px 60px rgba(0,0,0,.5);
+      --radius: 20px;
+    }
+
+    /* Quiz Mode Colors */
+    body.quiz-mode{
+      --primary:#8b5cf6;
+      --primary-light:#a78bfa;
+      --primary-dark:#7c3aed;
+      --ring: rgba(139,92,246,.3);
+    }
+    *{box-sizing:border-box; margin:0; padding:0}
+    body{
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(1400px 900px at 50% 0%, rgba(16,185,129,.12), transparent 70%),
+                  radial-gradient(1200px 800px at 50% 100%, rgba(59,130,246,.1), transparent 70%),
+                  linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      color:var(--text);
+      min-height:100vh;
+      width:100vw;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+      transition: background .5s ease;
+    }
+
+    body.quiz-mode{
+      background: radial-gradient(1400px 900px at 50% 0%, rgba(139,92,246,.15), transparent 70%),
+                  radial-gradient(1200px 800px at 50% 100%, rgba(59,130,246,.12), transparent 70%),
+                  linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    /* Mode Switcher */
+    .mode-switcher{
+      position:fixed;
+      top:20px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:150;
+      display:flex;
+      gap:8px;
+      background: rgba(15,23,42,.8);
+      backdrop-filter: blur(20px);
+      border:2px solid rgba(255,255,255,.15);
+      border-radius:16px;
+      padding:6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.3);
+    }
+
+    .mode-btn{
+      padding:10px 20px;
+      border-radius:12px;
+      border:none;
+      background: transparent;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+      cursor:pointer;
+      transition: all .3s;
+      white-space:nowrap;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .mode-btn:hover{
+      color:var(--text);
+      background: rgba(255,255,255,.05);
+    }
+
+    .mode-btn.active{
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color:var(--text);
+      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    }
+
+    .mode-btn.active.quiz-mode{
+      background: linear-gradient(135deg, var(--accent2), rgba(139,92,246,.8));
+    }
+
+    /* Quiz Mode Styling */
+    body.quiz-mode{
+      background: radial-gradient(1400px 900px at 50% 0%, rgba(139,92,246,.15), transparent 70%),
+                  radial-gradient(1200px 800px at 50% 100%, rgba(59,130,246,.12), transparent 70%),
+                  linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    body.quiz-mode .break-title{
+      background: linear-gradient(135deg, #ffffff 0%, #8b5cf6 50%, #3b82f6 100%);
+    }
+
+    body.quiz-mode .status-badge.running{
+      background: rgba(139,92,246,.15);
+      border-color: rgba(139,92,246,.3);
+      color:#a78bfa;
+    }
+
+    /* Hide mode switcher in fullscreen */
+    body.fullscreen-mode .mode-switcher,
+    :fullscreen .mode-switcher,
+    :-webkit-full-screen .mode-switcher,
+    :-moz-full-screen .mode-switcher,
+    :-ms-fullscreen .mode-switcher {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Main Display */
+    .main-display{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      padding:40px 20px;
+      position:relative;
+      z-index:1;
+    }
+
+    .break-icons{
+      display:flex;
+      gap:30px;
+      margin-bottom:30px;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .break-icon{
+      font-size:clamp(48px, 8vw, 80px);
+      animation: float 3s ease-in-out infinite;
+      filter: drop-shadow(0 10px 30px rgba(16,185,129,.4));
+      transition: transform .3s;
+    }
+
+    .break-icon:hover{
+      transform: scale(1.1) rotate(5deg);
+    }
+
+    .break-icon.coffee{
+      animation-delay: 0s;
+    }
+
+    .break-icon.snack{
+      animation-delay: 1.5s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      25% { transform: translateY(-10px) rotate(-5deg); }
+      50% { transform: translateY(-15px) rotate(0deg); }
+      75% { transform: translateY(-10px) rotate(5deg); }
+    }
+
+    /* Floating decorative elements */
+    .decorative-elements{
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .floating-item{
+      position:absolute;
+      font-size:clamp(24px, 4vw, 48px);
+      opacity:.15;
+      animation: floatAround 20s infinite linear;
+    }
+
+    .floating-item:nth-child(1){
+      top:10%;
+      left:5%;
+      animation-delay: 0s;
+    }
+
+    .floating-item:nth-child(2){
+      top:20%;
+      right:8%;
+      animation-delay: 3s;
+      font-size:clamp(20px, 3.5vw, 40px);
+    }
+
+    .floating-item:nth-child(3){
+      bottom:25%;
+      left:10%;
+      animation-delay: 6s;
+      font-size:clamp(28px, 4.5vw, 52px);
+    }
+
+    .floating-item:nth-child(4){
+      bottom:15%;
+      right:12%;
+      animation-delay: 9s;
+      font-size:clamp(22px, 3.8vw, 44px);
+    }
+
+    .floating-item:nth-child(5){
+      top:50%;
+      left:3%;
+      animation-delay: 12s;
+      font-size:clamp(26px, 4.2vw, 50px);
+    }
+
+    .floating-item:nth-child(6){
+      top:60%;
+      right:5%;
+      animation-delay: 15s;
+      font-size:clamp(24px, 4vw, 46px);
+    }
+
+    @keyframes floatAround {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(30px, -30px) rotate(90deg); }
+      50% { transform: translate(-20px, -50px) rotate(180deg); }
+      75% { transform: translate(-40px, 20px) rotate(270deg); }
+      100% { transform: translate(0, 0) rotate(360deg); }
+    }
+
+    .break-title{
+      font-size:clamp(28px, 5vw, 56px);
+      font-weight:800;
+      letter-spacing:2px;
+      text-align:center;
+      margin-bottom:10px;
+      background: linear-gradient(135deg, #ffffff 0%, #10b981 50%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 4px 20px rgba(16,185,129,.3);
+    }
+
+    .break-subtitle{
+      font-size:clamp(14px, 2.5vw, 20px);
+      color:var(--muted);
+      text-align:center;
+      margin-bottom:50px;
+      font-weight:500;
+    }
+
+    .bigTime{
+      font-variant-numeric: tabular-nums;
+      font-size:clamp(100px, 18vw, 240px);
+      font-weight:900;
+      letter-spacing:6px;
+      line-height:1;
+      text-shadow: 0 10px 60px rgba(0,0,0,.8),
+                   0 0 100px rgba(16,185,129,.4);
+      margin:30px 0;
+      color:var(--text);
+      animation: pulse 2s ease-in-out infinite;
+      position:relative;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
+    .status-badge{
+      font-size:clamp(18px, 3vw, 32px);
+      color:var(--muted);
+      margin-top:20px;
+      padding:14px 32px;
+      border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(20px);
+      font-weight:600;
+      letter-spacing:1px;
+      transition: all .3s;
+    }
+
+    .status-badge.running{
+      background: rgba(16,185,129,.15);
+      border-color: rgba(16,185,129,.3);
+      color:var(--primary-light);
+      box-shadow: 0 0 30px rgba(16,185,129,.2);
+    }
+
+    .status-badge.paused{
+      background: rgba(245,158,11,.15);
+      border-color: rgba(245,158,11,.3);
+      color:#fbbf24;
+    }
+
+    .status-badge.finished{
+      background: rgba(239,68,68,.15);
+      border-color: rgba(239,68,68,.3);
+      color:#f87171;
+      animation: finishedPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes finishedPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .progressWrap{
+      width:min(700px, 85%);
+      height:12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.15);
+      overflow:hidden;
+      margin-top:50px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,.3);
+    }
+
+    .bar{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, #10b981, #34d399, #3b82f6);
+      transition: width .3s linear;
+      box-shadow: 0 0 30px rgba(16,185,129,.6);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .bar::after{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Control Panel Toggle Button */
+    .control-panel-toggle{
+      position:fixed;
+      top:20px;
+      right:20px;
+      z-index:150;
+      width:50px;
+      height:50px;
+      border-radius:12px;
+      border:2px solid rgba(255,255,255,.2);
+      background: rgba(15,23,42,.8);
+      backdrop-filter: blur(20px);
+      color:var(--text);
+      font-size:22px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition: all .3s;
+      box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    }
+
+    .control-panel-toggle:hover{
+      background: rgba(16,185,129,.2);
+      border-color: rgba(16,185,129,.4);
+      transform: scale(1.05);
+    }
+
+    .control-panel-toggle:active{
+      transform: scale(.95);
+    }
+
+    .control-panel-toggle.active{
+      background: rgba(16,185,129,.3);
+      border-color: rgba(16,185,129,.5);
+    }
+
+    /* Hide toggle button in fullscreen */
+    body.fullscreen-mode .control-panel-toggle,
+    :fullscreen .control-panel-toggle,
+    :-webkit-full-screen .control-panel-toggle,
+    :-moz-full-screen .control-panel-toggle,
+    :-ms-fullscreen .control-panel-toggle {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Control Panel - Popup Style */
+    .control-panel{
+      position:fixed;
+      top:80px;
+      right:20px;
+      z-index:100;
+      background: linear-gradient(180deg, rgba(30,41,59,.98), rgba(15,23,42,.98));
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:var(--radius);
+      padding:24px;
+      backdrop-filter: blur(30px);
+      box-shadow: var(--shadow);
+      min-width:320px;
+      max-width:380px;
+      transform: translateY(-20px) scale(0.95);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1), 
+                  opacity .3s, 
+                  visibility .3s;
+    }
+
+    .control-panel.show{
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      visibility: visible;
+      pointer-events: all;
+    }
+
+    /* Hide control panel in fullscreen */
+    body.fullscreen-mode .control-panel,
+    :fullscreen .control-panel,
+    :-webkit-full-screen .control-panel,
+    :-moz-full-screen .control-panel,
+    :-ms-fullscreen .control-panel {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(-20px) scale(0.95) !important;
+    }
+
+    /* Fullscreen button */
+    .fullscreen-btn{
+      position:fixed;
+      top:20px;
+      left:20px;
+      z-index:150;
+      width:50px;
+      height:50px;
+      border-radius:12px;
+      border:2px solid rgba(255,255,255,.2);
+      background: rgba(15,23,42,.8);
+      backdrop-filter: blur(20px);
+      color:var(--text);
+      font-size:20px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition: all .3s;
+      box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    }
+
+    .fullscreen-btn:hover{
+      background: rgba(16,185,129,.2);
+      border-color: rgba(16,185,129,.4);
+      transform: scale(1.05);
+    }
+
+    .fullscreen-btn:active{
+      transform: scale(.95);
+    }
+
+    /* Hide fullscreen button and meta info in fullscreen mode */
+    body.fullscreen-mode .fullscreen-btn,
+    :fullscreen .fullscreen-btn,
+    :-webkit-full-screen .fullscreen-btn,
+    :-moz-full-screen .fullscreen-btn,
+    :-ms-fullscreen .fullscreen-btn {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    body.fullscreen-mode .meta-info,
+    :fullscreen .meta-info,
+    :-webkit-full-screen .meta-info,
+    :-moz-full-screen .meta-info,
+    :-ms-fullscreen .meta-info {
+      visibility: hidden !important;
+      opacity: 0 !important;
+    }
+
+
+    .panel-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+      padding-bottom:16px;
+      border-bottom:2px solid rgba(255,255,255,.1);
+    }
+
+    .panel-title{
+      font-size:16px;
+      font-weight:700;
+      color:var(--text);
+      letter-spacing:.5px;
+    }
+
+    .close-panel-btn{
+      width:28px;
+      height:28px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      font-size:16px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition: all .2s;
+      padding:0;
+    }
+
+    .close-panel-btn:hover{
+      background: rgba(239,68,68,.2);
+      border-color: rgba(239,68,68,.3);
+      transform: scale(1.1);
+    }
+
+    /* Quick Preset Buttons */
+    .presets{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:8px;
+      margin-bottom:20px;
+    }
+
+    .preset-btn{
+      padding:12px 8px;
+      border-radius:12px;
+      border:2px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      font-weight:700;
+      font-size:13px;
+      cursor:pointer;
+      transition: all .2s;
+      text-align:center;
+    }
+
+    .preset-btn:hover{
+      background: rgba(16,185,129,.2);
+      border-color: rgba(16,185,129,.4);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16,185,129,.3);
+    }
+
+    .preset-btn:active{
+      transform: translateY(0);
+    }
+
+    .preset-btn.active{
+      background: linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,185,129,.6));
+      border-color: rgba(16,185,129,.8);
+      box-shadow: 0 0 20px rgba(16,185,129,.4);
+    }
+
+    .grid{
+      display:grid;
+      gap:16px;
+      grid-template-columns: 1fr 1fr;
+      margin-bottom:20px;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    label{
+      font-size:12px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:1px;
+      font-weight:600;
+    }
+
+    input[type="number"]{
+      width:100%;
+      padding:14px 16px;
+      border-radius:14px;
+      border:2px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.3);
+      color:var(--text);
+      outline:none;
+      font-size:16px;
+      font-weight:700;
+      transition: all .2s;
+    }
+
+    input[type="number"]:focus{
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--ring);
+      background: rgba(0,0,0,.4);
+    }
+
+    .buttons{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    button{
+      border:2px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.08);
+      color:var(--text);
+      padding:14px 18px;
+      border-radius:14px;
+      font-weight:700;
+      font-size:14px;
+      cursor:pointer;
+      transition: all .2s;
+      user-select:none;
+      letter-spacing:.5px;
+    }
+
+    button:hover:not(:disabled){
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    }
+
+    button:active:not(:disabled){transform: translateY(0)}
+    button.primary{
+      background: linear-gradient(135deg, rgba(16,185,129,.95), rgba(16,185,129,.7));
+      border-color: rgba(16,185,129,.8);
+      box-shadow: 0 4px 20px rgba(16,185,129,.4);
+    }
+    button.primary:hover:not(:disabled){
+      box-shadow: 0 6px 30px rgba(16,185,129,.5);
+    }
+    button.good{
+      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(59,130,246,.6));
+      border-color: rgba(59,130,246,.8);
+    }
+    button.danger{
+      background: linear-gradient(135deg, rgba(239,68,68,.9), rgba(239,68,68,.6));
+      border-color: rgba(239,68,68,.8);
+    }
+    button:disabled{
+      opacity:.4;
+      cursor:not-allowed;
+      transform:none !important;
+    }
+
+    .toast{
+      position:fixed;
+      bottom:40px;
+      left:50%;
+      transform:translateX(-50%);
+      padding:16px 24px;
+      border-radius:16px;
+      border:2px solid rgba(255,255,255,.2);
+      color:var(--text);
+      background: rgba(15,23,42,.95);
+      backdrop-filter: blur(20px);
+      display:none;
+      z-index:200;
+      font-size:15px;
+      font-weight:600;
+      box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    }
+
+    .toast.show{
+      display:block;
+      animation: slideUp .4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity:0;
+        transform:translateX(-50%) translateY(30px);
+      }
+      to {
+        opacity:1;
+        transform:translateX(-50%) translateY(0);
+      }
+    }
+
+    .meta-info{
+      position:fixed;
+      bottom:20px;
+      left:20px;
+      font-size:13px;
+      color:var(--muted);
+      background: rgba(15,23,42,.7);
+      padding:10px 16px;
+      border-radius:12px;
+      backdrop-filter: blur(20px);
+      border:1px solid rgba(255,255,255,.1);
+      font-weight:500;
+    }
+
+    @media (max-width: 768px){
+      .control-panel{
+        top:10px;
+        right:10px;
+        min-width:280px;
+        padding:20px;
+      }
+      .presets{
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .break-icons{
+        gap:20px;
+        margin-bottom:20px;
+      }
+      .break-title{
+        margin-bottom:8px;
+      }
+      .break-subtitle{
+        margin-bottom:40px;
+      }
+      .bigTime{
+        margin:20px 0;
+        letter-spacing:4px;
+      }
+      .status-badge{
+        margin-top:15px;
+        font-size:16px;
+        padding:12px 24px;
+      }
+      .floating-item{
+        opacity:.1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Mode Switcher -->
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="breakModeBtn" data-mode="break">
+      <span>☕</span> Break
+    </button>
+    <button class="mode-btn" id="quizModeBtn" data-mode="quiz">
+      <span>📝</span> Quiz
+    </button>
+  </div>
+
+  <!-- Fullscreen Button -->
+  <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen (F11)">⛶</button>
+
+  <!-- Control Panel Toggle Button -->
+  <button class="control-panel-toggle" id="controlPanelToggle" title="Timer Controls">⏱️</button>
+
+  <!-- Main Full-Screen Display -->
+  <div class="main-display">
+    <!-- Floating Decorative Elements -->
+    <div class="decorative-elements">
+      <div class="floating-item">☕</div>
+      <div class="floating-item">🍪</div>
+      <div class="floating-item">☕</div>
+      <div class="floating-item">🍰</div>
+      <div class="floating-item">🥐</div>
+      <div class="floating-item">🍩</div>
+        </div>
+
+    <!-- Main Icons -->
+    <div class="break-icons">
+      <div class="break-icon coffee">☕</div>
+      <div class="break-icon snack">🍪</div>
+      </div>
+
+    <h1 class="break-title" id="breakTitle">Break Time</h1>
+    <div class="break-subtitle" id="breakSubtitle">Enjoy your coffee and snacks</div>
+    <div class="bigTime" id="timeDisplay">00:05:00</div>
+    <div class="status-badge" id="statusText">Ready</div>
+    <div class="progressWrap" aria-label="progress">
+      <div class="bar" id="bar"></div>
+    </div>
+  </div>
+
+  <!-- Control Panel -->
+  <div class="control-panel" id="controlPanel">
+    <div class="panel-header">
+      <div class="panel-title">⏱️ Timer Controls</div>
+      <button class="close-panel-btn" id="closePanelBtn" title="Close">✕</button>
+    </div>
+
+    <!-- Quick Presets -->
+    <div class="presets">
+      <button class="preset-btn" data-minutes="5">5 min</button>
+      <button class="preset-btn" data-minutes="10">10 min</button>
+      <button class="preset-btn" data-minutes="15">15 min</button>
+      <button class="preset-btn" data-minutes="30">30 min</button>
+    </div>
+
+        <div class="grid">
+          <div class="field">
+        <label for="hours">Hours</label>
+            <input id="hours" type="number" min="0" max="23" value="0" />
+          </div>
+          <div class="field">
+        <label for="minutes">Minutes</label>
+        <input id="minutes" type="number" min="0" max="59" value="5" />
+          </div>
+        </div>
+
+        <div class="buttons">
+      <button class="primary" id="startBtn">▶ Start</button>
+      <button class="good" id="pauseBtn" disabled>⏸ Pause</button>
+        </div>
+    <div class="buttons">
+      <button class="good" id="resumeBtn" disabled>▶ Resume</button>
+      <button class="danger" id="resetBtn" disabled>↻ Reset</button>
+      </div>
+  </div>
+
+  <!-- Meta Info -->
+  <div class="meta-info" id="metaText">☕🍪 Set break duration and press Start</div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const hoursEl = document.getElementById("hours");
+    const minutesEl = document.getElementById("minutes");
+    const timeDisplay = document.getElementById("timeDisplay");
+    const statusText = document.getElementById("statusText");
+    const metaText = document.getElementById("metaText");
+    const bar = document.getElementById("bar");
+    const toast = document.getElementById("toast");
+    const breakTitle = document.getElementById("breakTitle");
+    const breakSubtitle = document.getElementById("breakSubtitle");
+    const controlPanel = document.getElementById("controlPanel");
+    const controlPanelToggle = document.getElementById("controlPanelToggle");
+    const closePanelBtn = document.getElementById("closePanelBtn");
+    const presetBtns = document.querySelectorAll(".preset-btn");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const breakModeBtn = document.getElementById("breakModeBtn");
+    const quizModeBtn = document.getElementById("quizModeBtn");
+    const breakIcons = document.querySelector(".break-icons");
+    const decorativeElements = document.querySelector(".decorative-elements");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    let totalSeconds = 0;
+    let remainingSeconds = 0;
+    let intervalId = null;
+    let running = false;
+    let currentMode = "break"; // "break" or "quiz"
+
+    // Fullscreen functionality
+    function isFullscreen() {
+      return !!(document.fullscreenElement || 
+                document.webkitFullscreenElement || 
+                document.mozFullScreenElement || 
+                document.msFullscreenElement);
+    }
+
+    function toggleFullscreen() {
+      if (!isFullscreen()) {
+        // Enter fullscreen
+        const elem = document.documentElement;
+        const promise = elem.requestFullscreen ? elem.requestFullscreen() :
+                       elem.webkitRequestFullscreen ? elem.webkitRequestFullscreen() :
+                       elem.mozRequestFullScreen ? elem.mozRequestFullScreen() :
+                       elem.msRequestFullscreen ? elem.msRequestFullscreen() : null;
+        
+        if (promise) {
+          promise.then(() => updateFullscreenButton()).catch(() => {});
+        }
+      } else {
+        // Exit fullscreen
+        const promise = document.exitFullscreen ? document.exitFullscreen() :
+                       document.webkitExitFullscreen ? document.webkitExitFullscreen() :
+                       document.mozCancelFullScreen ? document.mozCancelFullScreen() :
+                       document.msExitFullscreen ? document.msExitFullscreen() : null;
+        
+        if (promise) {
+          promise.then(() => updateFullscreenButton()).catch(() => {});
+        }
+      }
+    }
+
+    // Update fullscreen button icon and body class
+    function updateFullscreenButton() {
+      if (isFullscreen()) {
+        document.body.classList.add("fullscreen-mode");
+        fullscreenBtn.textContent = "⛶";
+        fullscreenBtn.title = "Exit Fullscreen (F11 or ESC)";
+        // Auto-hide control panel when entering fullscreen
+        hideControlPanel();
+      } else {
+        document.body.classList.remove("fullscreen-mode");
+        fullscreenBtn.textContent = "⛶";
+        fullscreenBtn.title = "Enter Fullscreen (F11)";
+      }
+    }
+
+    // Mode Switching Functions
+    function switchMode(mode) {
+      currentMode = mode;
+      document.body.classList.toggle("quiz-mode", mode === "quiz");
+      
+      // Update mode buttons
+      breakModeBtn.classList.toggle("active", mode === "break");
+      quizModeBtn.classList.toggle("active", mode === "quiz");
+      
+      // Update UI content
+      if (mode === "break") {
+        breakTitle.textContent = "Break Time";
+        breakSubtitle.textContent = "Enjoy your coffee and snacks";
+        
+        // Update icons
+        if (breakIcons) {
+          breakIcons.innerHTML = `
+            <div class="break-icon coffee">☕</div>
+            <div class="break-icon snack">🍪</div>
+          `;
+        }
+        
+        // Update floating elements
+        if (decorativeElements) {
+          decorativeElements.innerHTML = `
+            <div class="floating-item">☕</div>
+            <div class="floating-item">🍪</div>
+            <div class="floating-item">☕</div>
+            <div class="floating-item">🍰</div>
+            <div class="floating-item">🥐</div>
+            <div class="floating-item">🍩</div>
+          `;
+        }
+      } else {
+        breakTitle.textContent = "Quiz Time";
+        breakSubtitle.textContent = "Focus and answer the questions";
+        
+        // Update icons
+        if (breakIcons) {
+          breakIcons.innerHTML = `
+            <div class="break-icon coffee">📝</div>
+            <div class="break-icon snack">✏️</div>
+          `;
+        }
+        
+        // Update floating elements
+        if (decorativeElements) {
+          decorativeElements.innerHTML = `
+            <div class="floating-item">📝</div>
+            <div class="floating-item">✏️</div>
+            <div class="floating-item">📚</div>
+            <div class="floating-item">📖</div>
+            <div class="floating-item">✅</div>
+            <div class="floating-item">❓</div>
+          `;
+        }
+      }
+      
+      // Update meta text
+      if (totalSeconds === 0) {
+        metaText.textContent = mode === "break" 
+          ? "☕🍪 Set break duration and press Start"
+          : "📝✏️ Set quiz duration and press Start";
+      }
+    }
+
+    // Mode button event listeners
+    breakModeBtn.addEventListener("click", () => switchMode("break"));
+    quizModeBtn.addEventListener("click", () => switchMode("quiz"));
+
+    // Control Panel Popup Functions
+    function showControlPanel() {
+      if (!isFullscreen()) {
+        controlPanel.classList.add("show");
+        controlPanelToggle.classList.add("active");
+      }
+    }
+
+    function hideControlPanel() {
+      controlPanel.classList.remove("show");
+      controlPanelToggle.classList.remove("active");
+    }
+
+    // Fullscreen button click
+    fullscreenBtn.addEventListener("click", toggleFullscreen);
+
+    // Listen for fullscreen changes
+    document.addEventListener("fullscreenchange", updateFullscreenButton);
+    document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+    document.addEventListener("mozfullscreenchange", updateFullscreenButton);
+    document.addEventListener("MSFullscreenChange", updateFullscreenButton);
+
+    // Control Panel Toggle Button
+    controlPanelToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (controlPanel.classList.contains("show")) {
+        hideControlPanel();
+      } else {
+        showControlPanel();
+      }
+    });
+
+    // Close Panel Button
+    closePanelBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      hideControlPanel();
+    });
+
+    // Close panel when clicking outside
+    document.addEventListener("click", (e) => {
+      if (controlPanel.classList.contains("show") && 
+          !controlPanel.contains(e.target) && 
+          !controlPanelToggle.contains(e.target)) {
+        hideControlPanel();
+      }
+    });
+
+    // Preset buttons
+    presetBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (running) return;
+        const minutes = parseInt(btn.dataset.minutes);
+        hoursEl.value = 0;
+        minutesEl.value = minutes;
+        syncPreview();
+        
+        // Update active state
+        presetBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        setTimeout(() => btn.classList.remove("active"), 1000);
+      });
+    });
+
+    // Allow title editing
+    breakTitle.addEventListener("dblclick", () => {
+      const newTitle = prompt("Enter break title:", breakTitle.textContent);
+      if (newTitle && newTitle.trim()) {
+        breakTitle.textContent = newTitle.trim();
+      }
+    });
+
+    breakSubtitle.addEventListener("dblclick", () => {
+      const newSubtitle = prompt("Enter subtitle:", breakSubtitle.textContent);
+      if (newSubtitle && newSubtitle.trim()) {
+        breakSubtitle.textContent = newSubtitle.trim();
+      }
+    });
+
+    function clampInputs() {
+      let h = Number(hoursEl.value);
+      let m = Number(minutesEl.value);
+
+      if (!Number.isFinite(h)) h = 0;
+      if (!Number.isFinite(m)) m = 0;
+
+      h = Math.max(0, Math.min(23, Math.trunc(h)));
+      m = Math.max(0, Math.min(59, Math.trunc(m)));
+
+      hoursEl.value = h;
+      minutesEl.value = m;
+
+      return { h, m };
+    }
+
+    function formatTime(seconds) {
+      const s = Math.max(0, Math.trunc(seconds));
+      const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+      const ss = String(s % 60).padStart(2, "0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function setUIState(state) {
+      statusText.classList.remove("running", "paused", "finished");
+      
+      if (state === "ready") {
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        resumeBtn.disabled = true;
+        resetBtn.disabled = true;
+        statusText.textContent = "Ready";
+      } else if (state === "running") {
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        resumeBtn.disabled = true;
+        resetBtn.disabled = false;
+        statusText.textContent = currentMode === "break" 
+          ? "☕ Coffee & Snack Time" 
+          : "📝 Quiz in Progress";
+        statusText.classList.add("running");
+      } else if (state === "paused") {
+        startBtn.disabled = true;
+        pauseBtn.disabled = true;
+        resumeBtn.disabled = false;
+        resetBtn.disabled = false;
+        statusText.textContent = "Paused";
+        statusText.classList.add("paused");
+      } else if (state === "done") {
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        resumeBtn.disabled = true;
+        resetBtn.disabled = false;
+        statusText.textContent = currentMode === "break" 
+          ? "Break Time Over!" 
+          : "Quiz Time Over!";
+        statusText.classList.add("finished");
+      }
+    }
+
+    function updateDisplay() {
+      timeDisplay.textContent = formatTime(remainingSeconds);
+
+      if (totalSeconds > 0) {
+        const pct = ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
+        bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        metaText.textContent = `Total: ${formatTime(totalSeconds)} • Remaining: ${formatTime(remainingSeconds)}`;
+      } else {
+        bar.style.width = "0%";
+        metaText.textContent = currentMode === "break" 
+          ? "☕🍪 Set break duration and press Start"
+          : "📝✏️ Set quiz duration and press Start";
+      }
+    }
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    function stopInterval() {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = null;
+      running = false;
+    }
+
+    function startTimer() {
+      const { h, m } = clampInputs();
+      totalSeconds = h * 3600 + m * 60;
+      remainingSeconds = totalSeconds;
+
+      if (totalSeconds <= 0) {
+        showToast(currentMode === "break" 
+          ? "Please set a break duration first."
+          : "Please set a quiz duration first.");
+        return;
+      }
+
+      stopInterval();
+      running = true;
+      setUIState("running");
+      updateDisplay();
+      showToast(currentMode === "break" 
+        ? "Break started! ☕ Enjoy your coffee and snacks! 🍪"
+        : "Quiz started! 📝 Good luck with your questions! ✏️");
+
+      intervalId = setInterval(() => {
+        remainingSeconds -= 1;
+        updateDisplay();
+
+        if (remainingSeconds <= 0) {
+          remainingSeconds = 0;
+          updateDisplay();
+          stopInterval();
+          setUIState("done");
+          showToast(currentMode === "break" 
+            ? "Break time is over! Time to get back to work ⏰"
+            : "Quiz time is over! ⏰ Submit your answers!");
+          try {
+            const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=");
+            beep.play().catch(()=>{});
+          } catch {}
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      if (!running) return;
+      stopInterval();
+      setUIState("paused");
+      showToast(currentMode === "break" ? "Break paused." : "Quiz paused.");
+    }
+
+    function resumeTimer() {
+      if (running || remainingSeconds <= 0) return;
+      running = true;
+      setUIState("running");
+      showToast(currentMode === "break" ? "Break resumed." : "Quiz resumed.");
+
+      intervalId = setInterval(() => {
+        remainingSeconds -= 1;
+        updateDisplay();
+
+        if (remainingSeconds <= 0) {
+          remainingSeconds = 0;
+          updateDisplay();
+          stopInterval();
+          setUIState("done");
+          showToast(currentMode === "break" 
+            ? "Break time is over! Time to get back to work ⏰"
+            : "Quiz time is over! ⏰ Submit your answers!");
+        }
+      }, 1000);
+    }
+
+    function resetTimer() {
+      stopInterval();
+      const { h, m } = clampInputs();
+      totalSeconds = h * 3600 + m * 60;
+      remainingSeconds = totalSeconds;
+      setUIState("ready");
+      updateDisplay();
+      showToast("Timer reset.");
+    }
+
+    function syncPreview() {
+      if (running || intervalId) return;
+      const { h, m } = clampInputs();
+      totalSeconds = h * 3600 + m * 60;
+      remainingSeconds = totalSeconds;
+      updateDisplay();
+    }
+
+    startBtn.addEventListener("click", startTimer);
+    pauseBtn.addEventListener("click", pauseTimer);
+    resumeBtn.addEventListener("click", resumeTimer);
+    resetBtn.addEventListener("click", resetTimer);
+
+    hoursEl.addEventListener("input", syncPreview);
+    minutesEl.addEventListener("input", syncPreview);
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      // F11 for fullscreen
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
+      
+      if (e.target.tagName === "INPUT") return;
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        if (!running && remainingSeconds > 0) startTimer();
+        else if (running) pauseTimer();
+      }
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        resetTimer();
+      }
+    });
+
+    syncPreview();
+    
+    // Initialize fullscreen button state
+    updateFullscreenButton();
+    
+    // Initialize mode (default to break mode)
+    switchMode("break");
+  </script>
+</body>
+</html>
